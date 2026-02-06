@@ -3,7 +3,7 @@ from dash import dcc, html
 
 import dash_ag_grid as dag
 import pandas as pd
-from qc_plots import read_length_distribution_plot
+from qc_plots import read_length_distribution_plot, sample_qc_stats_total_plot
 from table_configs.table_config import (
     sample_sheet_col_def,
     sample_qc_meta_col_def,
@@ -18,6 +18,9 @@ sample_qc_meta_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sampl
 sample_qc_read_length_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_read_length.tsv", sep='\t')
 sample_qc_stats_missing_var_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_missing.tsv", sep='\t')
 missing_variants_in_library_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/missing_variants_in_library.tsv", sep='\t')
+sample_qc_stats_total_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_total.tsv", sep='\t')
+
+
 # --- 3. Define Dash App ---
 app = dash.Dash(__name__)
 
@@ -99,6 +102,11 @@ app.layout = html.Div([
             style=missing_variants_in_library_col_def["style"]
         )
     ]),
+    
+    html.Div([
+        html.H3("Read Length Distribution"),
+        dcc.Graph(id='sample-qc-stats-total', figure=sample_qc_stats_total_plot(sample_qc_stats_total_df))
+    ], style={'marginBottom': '50px'}),
     
 ], style={'padding': '20px'})
 

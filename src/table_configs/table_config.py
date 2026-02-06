@@ -1,3 +1,19 @@
+def create_progress_column(header_name, field_name) -> dict:
+    color = "rgba(76, 175, 80, 0.5)"
+    return {
+        "headerName": header_name,
+        "field": field_name,
+        'cellStyle': {
+            'function': '''({
+                backgroundImage: params.value != null ? 
+                    `linear-gradient(90deg, ''' + color + ''' ${params.value}%, transparent ${params.value}%)` : 
+                    'none',
+                backgroundRepeat: 'no-repeat',
+                textAlign: 'center'
+            })'''
+        }
+    }
+
 sample_sheet_col_def = {
                 "columns": [
                         {"headerName": "ID Study", "field": "id_study"},
@@ -40,6 +56,7 @@ sample_qc_meta_col_def = {
                 "style": {"height": 380, "width": "100%"}
 }
 
+
 sample_qc_read_length_col_def = {
             "columns": [
                 {"headerName": "Group", "field": "Group"},
@@ -47,12 +64,12 @@ sample_qc_read_length_col_def = {
                 {"headerName": "Sample Info", "field": "Sample Info"},
                 {"headerName": "Sample Exon", "field": "Sample Exon"},
                 {"headerName": "Total Reads", "field": "Total Reads"},
-                {"headerName": "% 0 ~ 50", "field": "% 0 ~ 50"},
-                {"headerName": "% 50 ~ 100", "field": "% 50 ~ 100"},
-                {"headerName": "% 100 ~ 150", "field": "% 100 ~ 150"},
-                {"headerName": "% 150 ~ 200", "field": "% 150 ~ 200"},
-                {"headerName": "% 200 ~ 250", "field": "% 200 ~ 250"},
-                {"headerName": "% 250 ~ 300", "field": "% 250 ~ 300"},
+                create_progress_column("% 0 ~ 50", "% 0 ~ 50"),
+                create_progress_column("% 50 ~ 100", "% 50 ~ 100"),
+                create_progress_column("% 100 ~ 150", "% 100 ~ 150"),
+                create_progress_column("% 150 ~ 200", "% 150 ~ 200"),
+                create_progress_column("% 200 ~ 250", "% 200 ~ 250"),
+                create_progress_column("% 250 ~ 300", "% 250 ~ 300"),
                 {"headerName": "Pass Threshold (%)", "field": "Pass Threshold (%)"},
                 {
                     "headerName": "Pass",
@@ -72,8 +89,9 @@ sample_qc_read_length_col_def = {
                     "paginationPageSize": 10,
                     "rowHeight": 28,
                     "headerHeight": 32,
+                    "animateRows": False,
                     "getRowStyle": {
-                        "function": "params.data && (params.data['Pass'] === 'FALSE' || params.data['Pass'] === false) ? {'backgroundColor': '#E2A5A5'} : {}"
+                        "function": "params.data && (params.data['Pass'] === 'FALSE' || params.data['Pass'] === false) ? {'backgroundColor': 'rgb(226 165 165 / 55%)'} : {}"
                     }
                 },
         "style": {"height": 380, "width": "100%"}
