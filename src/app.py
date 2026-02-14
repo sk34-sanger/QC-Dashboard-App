@@ -1,6 +1,6 @@
 import dash
-from dash import dcc, html
-
+from dash import Dash, Input, Output, html, dcc, callback
+import json
 import dash_ag_grid as dag
 import pandas as pd
 from qc_plots import (
@@ -19,6 +19,7 @@ from table_configs.table_config import (
     sample_qc_stats_total_col_def,
     sample_qc_stats_accepted_col_def,
     sample_qc_stats_coverage_col_def,
+    sample_qc_stats_pos_coverage_col_def,
     )
 # --- 2. Load Data ---
 
@@ -30,8 +31,16 @@ missing_variants_in_library_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data
 sample_qc_stats_total_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_total.tsv", sep='\t')
 sample_qc_stats_accepted_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_accepted.tsv", sep='\t')
 sample_qc_stats_coverage_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_coverage.tsv", sep='\t')
+sample_qc_stats_pos_coverage_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_pos_coverage.tsv", sep='\t')
+sample_qc_stats_pos_counts_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_pos_counts.tsv", sep='\t')
 sample_qc_position_cov_data_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_position_cov_data.tsv", sep='\t')
 sample_qc_cutoffs_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_cutoffs.tsv", sep='\t')
+
+# Process position coverage data with boxplot
+sample_qc_stats_pos_coverage_df_processed, sample_qc_stats_pos_coverage_col_def_config = sample_qc_stats_pos_coverage_col_def(
+    sample_qc_stats_pos_coverage_df, 
+    sample_qc_stats_pos_counts_df
+)
 
 # --- 3. Define Dash App ---
 app = dash.Dash(__name__, title="QC Dashboard")
@@ -171,15 +180,36 @@ app.layout = html.Div([
     ]),
     
     html.Div([
-        html.H3("Sample QC Position Coverage Plot"),
+        html.H3("Sample QC Stats Coverage Plot"),
         dcc.Graph(
             id='sample-qc-position-coverage', 
             figure=sample_qc_position_coverage_plot(sample_qc_position_cov_data_df, sample_qc_cutoffs_df)
         )
     ], style={'marginBottom': '50px'}),
     
+    
+    html.Div([
+        html.H3("Sample QC Stats Position Coverage Table"),
+        dag.AgGrid(
+            id="sample-qc-stats-position-coverage-table",
+            rowData=sample_qc_stats_pos_coverage_df_processed.to_dict('records'),
+            columnDefs=sample_qc_stats_pos_coverage_col_def_config["columns"],
+            defaultColDef={"sortable": True, "filter": True, "resizable": True},
+            columnSize="sizeToFit",
+            dashGridOptions=sample_qc_stats_pos_coverage_col_def_config["dashGridOptions"],
+            className="ag-theme-alpine",
+            style=sample_qc_stats_pos_coverage_col_def_config["style"]
+        ),
+    ]),
+    
 ], style={'padding': '20px'})
 
+
+@callback(
+    Input("sample-qc-stats-position-coverage-table", "cellRendererData")
+)
+def graphClickData(d):
+    return json.dumps(d)
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000, host='0.0.0.0')

@@ -1,3 +1,8 @@
+import numpy as np
+import pandas as pd
+import plotly.express as px
+
+
 def create_progress_column(header_name, field_name, is_bold=False) -> dict:
     color = "rgba(76, 175, 80, 0.5)"
     
@@ -181,7 +186,7 @@ missing_variants_in_library_col_def = {
 
 
 sample_qc_stats_total_col_def = {    
-            "columns": [
+        "columns": [
                 {"headerName": "Group", "field": "Group"},
                 {"headerName": "Sample", "field": "Sample"},
                 {"headerName": "Sample Info", "field": "Sample Info"},
@@ -230,7 +235,7 @@ sample_qc_stats_total_col_def = {
 
 
 sample_qc_stats_accepted_col_def = {  
-            "columns": [
+        "columns": [
                 {"headerName": "Group", "field": "Group"},    
                 {"headerName": "Sample", "field": "Sample"},
                 {"headerName": "Sample Info", "field": "Sample Info"},
@@ -270,7 +275,7 @@ sample_qc_stats_accepted_col_def = {
 
 
 sample_qc_stats_coverage_col_def = {  
-            "columns": [
+        "columns": [
                 {"headerName": "Group", "field": "Group"},    
                 {"headerName": "Sample", "field": "Sample"},
                 {"headerName": "Sample Info", "field": "Sample Info"},
@@ -315,3 +320,138 @@ sample_qc_stats_coverage_col_def = {
                 },
         "style": {"height": 380, "width": "100%"}
 }
+
+def sample_qc_stats_pos_coverage_col_def(coverage_df, counts_df):
+    """
+    Create column definitions and process boxplot data for sample QC stats position coverage table.
+    
+    Args:
+        coverage_df: DataFrame with sample coverage statistics
+        counts_df: DataFrame with position counts for each sample
+        
+    Returns:
+        tuple: (modified_coverage_df, column_definitions_dict)
+    """
+    # Create a copy of the coverage dataframe to avoid modifying the original
+    df = coverage_df.copy()
+    
+    # Log2 transform the counts data: log2(counts + 1)
+    df_counts = np.log2(counts_df + 1)
+    
+    # Initialize the data and boxplot columns
+    df['data'] = None
+    df['boxplot'] = None
+    
+    # For each sample in the coverage dataframe, extract counts data
+    for i in range(len(df)):
+        sample_name = df.iloc[i]['Sample']
+        
+        # Check if this sample exists in the counts dataframe
+        if sample_name in df_counts.columns:
+            tmp_data = df_counts[sample_name]
+            # Remove NA values and convert to list
+            data_list = tmp_data[~tmp_data.isna()].tolist()
+            df.at[i, 'data'] = data_list
+            
+            # Create plotly boxplot figure
+            if len(data_list) > 0:
+                # Create horizontal boxplot
+                fig = px.box(
+                    x=data_list,
+                    orientation='h',
+                    height=50,
+                    width=140,
+                    labels={'x': 'Log2(Count + 1)'}
+                )
+                fig.update_layout(
+                    margin=dict(l=0, r=0, t=0, b=0),
+                    showlegend=False,
+                    xaxis={
+                        'visible': True, 
+                        'showticklabels': True,
+                        'showgrid': True,
+                        'gridcolor': 'lightgray',
+                        'zeroline': True,
+                        'title': None
+                    },
+                    yaxis={'visible': False, 'showticklabels': False},
+                    plot_bgcolor='rgba(255,255,255,1)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    hovermode='x',
+                    hoverlabel=dict(bgcolor="white", font_size=12)
+                )
+                fig.update_traces(
+                    marker=dict(color='#5470C6', size=3),
+                    boxmean=True,
+                    hovertemplate='<b>Value:</b> %{x:.2f}<extra></extra>'
+                )
+                # Convert to dictionary format for Dash
+                df.at[i, 'boxplot'] = fig.to_dict()
+            else:
+                df.at[i, 'boxplot'] = None
+        else:
+            df.at[i, 'data'] = []
+            df.at[i, 'boxplot'] = None
+    
+    # Calculate boxplot min and max from the entire df_counts
+    boxplot_min = float(df_counts.min().min())
+    boxplot_max = float(df_counts.max().max())
+    
+    # Define column configuration
+    col_def = {  
+        "columns": [
+                {"headerName": "Group", "field": "Group"},    
+                {"headerName": "Sample", "field": "Sample"},
+                {"headerName": "Sample Info", "field": "Sample Info"},
+                {"headerName": "Sample Exon", "field": "Sample Exon"},
+                {
+                    "headerName": "% Low Abundance", 
+                    "field": "% Low Abundance",
+                    "cellStyle": {
+                        "function": "params.data && (params.data['Pass'] === 'FALSE' || params.data['Pass'] === false) ? \
+                            {'color': '#dc3545', 'fontWeight': 'bold'} : \
+                            {'color': '#198754', 'fontWeight': 'bold'}"
+                    }
+                },
+                {
+                    "headerName": "Coverage Distribution",
+                    "field": "boxplot",
+                    "cellRenderer": "DCC_GraphClickData",
+                    "maxWidth": 250,
+                    "minWidth": 140,
+                },
+                {"headerName": "Chromosome", "field": "Chromosome"},
+                {"headerName": "Strand", "field": "Strand"},
+                {"headerName": "Genomic Start", "field": "Genomic Start"},
+                {"headerName": "Genomic End", "field": "Genomic End"},
+                {"headerName": "Low Abundance cutoff", "field": "Low Abundance cutoff"},
+                {"headerName": "Pass Threshold (%)", "field": "Pass Threshold (%)"},
+                {
+                    "headerName": "Pass",
+                    "field": "Pass",
+                    "cellRenderer": {
+                        "function": "params.value === 'TRUE' || params.value === true ? '✅' : '❌'"
+                    },
+                    "cellStyle": {
+                        "function": "params.value === 'TRUE' || params.value === true ? \
+                        {'color': '#198754', 'textAlign': 'center'} : \
+                        {'color': '#dc3545', 'textAlign': 'center'}"
+                    }
+                }
+            ],
+        "dashGridOptions": {
+                    "pagination": True,
+                    "paginationPageSize": 10,
+                    "rowHeight": 60,
+                    "headerHeight": 32,
+                    "animateRows": False,
+                    "getRowStyle": {
+                        "function": "params.data && \
+                            (params.data['Pass'] === 'FALSE' || params.data['Pass'] === false) \
+                                ? {'backgroundColor': 'rgb(226 165 165 / 55%)'} : {}"
+                    }
+                },
+        "style": {"height": 380, "width": "100%"}
+    }
+    
+    return df, col_def
