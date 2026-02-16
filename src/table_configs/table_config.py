@@ -394,8 +394,8 @@ def sample_qc_stats_pos_coverage_col_def(coverage_df, counts_df):
             df.at[i, 'boxplot'] = None
     
     # Calculate boxplot min and max from the entire df_counts
-    boxplot_min = float(df_counts.min().min())
-    boxplot_max = float(df_counts.max().max())
+    # boxplot_min = float(df_counts.min().min())
+    # boxplot_max = float(df_counts.max().max())
     
     # Define column configuration
     col_def = {  
@@ -451,7 +451,7 @@ def sample_qc_stats_pos_coverage_col_def(coverage_df, counts_df):
                                 ? {'backgroundColor': 'rgb(226 165 165 / 55%)'} : {}"
                     }
                 },
-        "style": {"height": 380, "width": "100%"}
+        "style": {"height": 700, "width": "100%"}
     }
     
     return df, col_def

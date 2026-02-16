@@ -5,6 +5,7 @@ import dash_ag_grid as dag
 import pandas as pd
 from qc_plots import (
     read_length_distribution_plot,
+    sample_qc_position_anno_plot,
     sample_qc_stats_accepted_reads_plot,
     sample_qc_stats_total_plot,
     sample_qc_position_coverage_plot
@@ -35,6 +36,7 @@ sample_qc_stats_pos_coverage_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/dat
 sample_qc_stats_pos_counts_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_pos_counts.tsv", sep='\t')
 sample_qc_position_cov_data_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_position_cov_data.tsv", sep='\t')
 sample_qc_cutoffs_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_cutoffs.tsv", sep='\t')
+sample_qc_position_anno_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_position_anno_data.tsv", sep='\t')
 
 # Process position coverage data with boxplot
 sample_qc_stats_pos_coverage_df_processed, sample_qc_stats_pos_coverage_col_def_config = sample_qc_stats_pos_coverage_col_def(
@@ -201,6 +203,14 @@ app.layout = html.Div([
             style=sample_qc_stats_pos_coverage_col_def_config["style"]
         ),
     ]),
+    
+    html.Div([
+        html.H3("Sample QC Position Annotation"),
+        dcc.Graph(
+            id='sample_qc_position_anno_plot', 
+            figure=sample_qc_position_anno_plot(sample_qc_position_anno_df, sample_qc_cutoffs_df)
+        )
+    ], style={'marginBottom': '50px'}),
     
 ], style={'padding': '20px'})
 

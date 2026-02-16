@@ -1,6 +1,7 @@
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import pandas as pd
 
 
 def read_length_distribution_plot(df):
@@ -282,3 +283,87 @@ def sample_qc_position_coverage_plot(df, sample_qc_cutoffs_df):
     )
     
     return fig
+
+
+def sample_qc_position_anno_plot(df, sample_qc_cutoffs_df):
+    
+    # Calculate compressed range with small padding
+    pos_min = df['position'].min()
+    pos_max = df['position'].max()
+    padding = (pos_max - pos_min) * 0.02  # 2% padding on each side
+    libcounts_pos_range = [pos_min - padding, pos_max + padding]
+    
+    df['consequence'] = df['consequence'].apply(lambda x: 'LOF' if x == 'LOF' else 'Others')
+
+    samples = [col for col in df.columns if col not in ['position', 'consequence']]
+    for sample in samples:
+        df[sample] = df[sample] / df[sample].sum() * 100
+
+    df_melted = df.melt(
+        id_vars=['position', 'consequence'], 
+        value_vars=samples, 
+        var_name='sample', 
+        value_name='counts'
+    )
+    df_melted['sample'] = pd.Categorical(df_melted['sample'], categories=samples, ordered=True)
+    
+    tmp_cutoff = sample_qc_cutoffs_df['low_abundance_per'].iloc[0] * 100
+    
+    fig = px.scatter(
+        df_melted, 
+        x="position", 
+        y="counts", 
+        color="consequence",
+        facet_row="sample",
+        title="Sample QC Position Percentage",
+        template="plotly_white",
+        color_discrete_map={
+            'LOF': 'rgba(255, 0, 0, 1)',       # Red with full opacity
+            'Others': 'rgba(65, 105, 225, 0.2)'  # Royal Blue with 20% opacity
+        },
+        labels={"position": "Genomic Coordinate", "counts": "Percentage", "consequence": "Type"}
+    )
+    fig.update_xaxes(
+        range=libcounts_pos_range,
+        tickvals=[pos_min, pos_max],
+        tickformat='d',
+        tickfont=dict(size=8, weight=700)
+    )
+    
+    # Calculate y-axis range to include both data and tmp_cutoff
+    import numpy as np
+    y_min = min(df_melted['counts'].min(), tmp_cutoff * 0.5)
+    y_max = max(df_melted['counts'].max(), tmp_cutoff * 2)
+    
+    fig.update_yaxes(
+        type='log',
+        range=[np.log10(y_min), np.log10(y_max)],
+        tickvals=[0.005, 0.01, 0.05, 0.2, 0.5, 1],
+        tickfont=dict(size=8, weight=700)
+    )
+    fig.update_layout(
+        title=dict(text="Sample QC Position Percentage", font=dict(size=12, family="Arial", weight=700)),
+        legend_title_text="Type",
+        legend=dict(
+            font=dict(size=10),
+            yanchor="middle",
+            y=0.5,
+            xanchor="left",
+            x=1.02
+        ),
+        plot_bgcolor='ivory',
+        paper_bgcolor='white',
+        height=300 * len(samples),  # Adjust height based on number of samples (vertical stacking)
+        hovermode='closest'
+    )
+    
+    # Add horizontal line at tmp_cutoff (equivalent to geom_hline in R)
+    fig.add_hline(
+        y=tmp_cutoff,
+        line_dash="dash",
+        line_color="darkgreen",  # springgreen4 equivalent
+        line_width=0.4
+    )
+    
+    return fig
+    
