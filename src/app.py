@@ -5,10 +5,12 @@ import dash_ag_grid as dag
 import pandas as pd
 from qc_plots import (
     read_length_distribution_plot,
+    sample_correlation_plot,
     sample_qc_position_anno_plot,
     sample_qc_stats_accepted_reads_plot,
     sample_qc_stats_total_plot,
-    sample_qc_position_coverage_plot
+    sample_qc_position_coverage_plot,
+    sample_dendogram_plot
     )
 
 from table_configs.table_config import (
@@ -21,6 +23,8 @@ from table_configs.table_config import (
     sample_qc_stats_accepted_col_def,
     sample_qc_stats_coverage_col_def,
     sample_qc_stats_pos_coverage_col_def,
+    sample_qc_stats_pos_percentage_col_def,
+    experiment_qc_corr_col_def
     )
 # --- 2. Load Data ---
 
@@ -37,12 +41,18 @@ sample_qc_stats_pos_counts_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/
 sample_qc_position_cov_data_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_position_cov_data.tsv", sep='\t')
 sample_qc_cutoffs_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_cutoffs.tsv", sep='\t')
 sample_qc_position_anno_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_position_anno_data.tsv", sep='\t')
+sample_qc_stats_pos_percentage_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_pos_percentage.tsv", sep='\t')
+sample_data_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_data.tsv", sep='\t')
+correlation_matrix_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/correlation_matrix.tsv", sep='\t')
+experiment_qc_corr_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/experiment_qc_corr.tsv", sep='\t')
 
 # Process position coverage data with boxplot
 sample_qc_stats_pos_coverage_df_processed, sample_qc_stats_pos_coverage_col_def_config = sample_qc_stats_pos_coverage_col_def(
     sample_qc_stats_pos_coverage_df, 
     sample_qc_stats_pos_counts_df
 )
+
+experiment_qc_corr_processed_df = experiment_qc_corr_col_def(experiment_qc_corr_df)
 
 # --- 3. Define Dash App ---
 app = dash.Dash(__name__, title="QC Dashboard")
@@ -211,6 +221,51 @@ app.layout = html.Div([
             figure=sample_qc_position_anno_plot(sample_qc_position_anno_df, sample_qc_cutoffs_df)
         )
     ], style={'marginBottom': '50px'}),
+    
+    html.Div([
+        html.H3("Sample QC Stats Position Percentage Table"),
+        dag.AgGrid(
+            id="sample-qc-stats-position-percentage-table",
+            rowData=sample_qc_stats_pos_percentage_df.to_dict('records'),
+            columnDefs=sample_qc_stats_pos_percentage_col_def["columns"],
+            defaultColDef={"sortable": True, "filter": True, "resizable": True},
+            columnSize="sizeToFit",
+            dashGridOptions=sample_qc_stats_pos_percentage_col_def["dashGridOptions"],
+            className="ag-theme-alpine",
+            style=sample_qc_stats_pos_percentage_col_def["style"]
+        ),
+    ]),
+        
+    html.Div([
+        html.H3("Sample Correlation Dendogram"),
+        dcc.Graph(
+            id='sample-correlation-dendogram', 
+            figure=sample_dendogram_plot(sample_data_df, correlation_matrix_df)
+        )
+    ], style={'marginBottom': '50px'}),
+    
+    html.Div([
+        html.H3("Sample Correlation Plot"),
+        dcc.Graph(
+            id='sample_correlation_plot',
+            figure=sample_correlation_plot(experiment_qc_corr_df)
+        )
+    ], style={'marginBottom': '50px'}),
+    
+    
+    html.Div([
+        html.H3("Experiment QC Correlation Table"),
+            dag.AgGrid(
+                id="experiment-qc-correlation-table",
+                rowData=experiment_qc_corr_df.to_dict('records'),
+                columnDefs=experiment_qc_corr_processed_df["columns"],
+                defaultColDef={"sortable": True, "filter": True, "resizable": True},
+                columnSize="sizeToFit",
+                dashGridOptions=experiment_qc_corr_processed_df["dashGridOptions"],
+                className="ag-theme-alpine",
+                style=experiment_qc_corr_processed_df["style"]
+            ),
+    ]),
     
 ], style={'padding': '20px'})
 

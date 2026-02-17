@@ -455,3 +455,115 @@ def sample_qc_stats_pos_coverage_col_def(coverage_df, counts_df):
     }
     
     return df, col_def
+
+
+sample_qc_stats_pos_percentage_col_def = {
+    # Group	Sample	Sample Info	Sample Exon	Chromosome	Strand	Genomic Start	Genomic End	% Low Abundance (LOF)	% Low Abundance (Others)	% Low Abundance (ALL)	% Low Abundance cutoff	Pass Threshold	Pass
+        "columns": [
+            {"headerName": "Group", "field": "Group"},    
+            {"headerName": "Sample", "field": "Sample"},
+            {"headerName": "Sample Info", "field": "Sample Info"},
+            {"headerName": "Sample Exon", "field": "Sample Exon"},
+            {"headerName": "Chromosome", "field": "Chromosome"},
+            {"headerName": "Strand", "field": "Strand"},
+            {"headerName": "Genomic Start", "field": "Genomic Start"},
+            {"headerName": "Genomic End", "field": "Genomic End"},
+            {"headerName": "% Low Abundance (LOF)", "field": "% Low Abundance (LOF)"},
+            {"headerName": "% Low Abundance (Others)", "field": "% Low Abundance (Others)"},
+            {
+                "headerName": "% Low Abundance (ALL)", 
+                "field": "% Low Abundance (ALL)",
+                "cellStyle": {
+                        "function": "params.data && (params.data['Pass'] === 'FALSE' || params.data['Pass'] === false) ? \
+                            {'color': '#dc3545', 'fontWeight': 'bold'} : \
+                            {'color': '#198754', 'fontWeight': 'bold'}"
+                }
+            },
+            {"headerName": "% Low Abundance cutoff", "field": "% Low Abundance cutoff"},
+            {"headerName": "Pass Threshold", "field": "Pass Threshold"},
+            {
+                    "headerName": "Pass",
+                    "field": "Pass",
+                    "cellRenderer": {
+                        "function": "params.value === 'TRUE' || params.value === true ? '✅' : '❌'"
+                    },
+                    "cellStyle": {
+                        "function": "params.value === 'TRUE' || params.value === true ? \
+                        {'color': '#198754', 'textAlign': 'center'} : \
+                        {'color': '#dc3545', 'textAlign': 'center'}"
+                    }
+            }
+        ],
+        "dashGridOptions": {
+                    "pagination": True,
+                    "paginationPageSize": 10,
+                    "rowHeight": 28,
+                    "headerHeight": 32,
+                    "animateRows": False,
+                    "getRowStyle": {
+                        "function": "params.data && \
+                            (params.data['Pass'] === 'FALSE' || params.data['Pass'] === false) \
+                                ? {'backgroundColor': 'rgb(226 165 165 / 55%)'} : {}"
+                    }
+                },
+        "style": {"height": 380, "width": "100%"}
+    }
+
+
+def experiment_qc_corr_col_def(df) -> dict:
+    """
+    Create column definitions for experiment QC correlation table.
+    Fixed columns: Sample, Cluster, Replicate, Condition
+    Dynamic columns: Sample IDs (correlation values)
+    """
+    # Define fixed metadata columns
+    fixed_columns = ['Sample', 'Cluster', 'Replicate', 'Condition']
+    
+    # Start with fixed column definitions
+    columns = [
+        {"headerName": "Sample", "field": "Sample"},
+        {"headerName": "Cluster", "field": "Cluster"},
+        {"headerName": "Replicate", "field": "Replicate"},
+        {"headerName": "Condition", "field": "Condition"}
+    ]
+    
+    # Get dynamic sample ID columns (those not in fixed_columns)
+    sample_id_columns = [col for col in df.columns if col not in fixed_columns]
+    
+    if "Pass" in sample_id_columns:
+        sample_id_columns.remove("Pass")  # Remove Pass column if it exists
+    
+    # Add dynamic columns for each sample ID with color-coded cells
+    for col in sample_id_columns:
+        columns.append({
+            "headerName": col,
+            "field": col,
+            "minWidth": 120,  # Minimum width to accommodate sample IDs
+            "wrapHeaderText": False,  # Don't wrap header text
+            "autoHeaderHeight": False  # Don't auto-adjust header height
+        })
+    
+    # Add Pass column at the end if it exists
+    if "Pass" in df.columns:
+        columns.append({
+            "headerName": "Pass",
+            "field": "Pass"
+        })
+    
+    return {
+        "columns": columns,
+        "defaultColDef": {
+            "resizable": True,
+            "sortable": True,
+            "filter": True
+        },
+        "columnSize": "autoSize",  # Auto-size columns based on content
+        "dashGridOptions": {
+            "pagination": True,
+            "paginationPageSize": 10,
+            "rowHeight": 28,
+            "headerHeight": 50,  # Increased header height for longer names
+            "animateRows": False,
+        },
+        "style": {"height": 380, "width": "100%"}
+    }

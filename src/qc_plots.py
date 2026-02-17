@@ -1,7 +1,14 @@
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import plotly.figure_factory as ff
+import numpy as np
 import pandas as pd
+from plotly.subplots import make_subplots
+from scipy.cluster.hierarchy import linkage, dendrogram, cut_tree
+from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import dendrogram as scipy_dendrogram
+
+
 
 
 def read_length_distribution_plot(df):
@@ -363,6 +370,164 @@ def sample_qc_position_anno_plot(df, sample_qc_cutoffs_df):
         line_dash="dash",
         line_color="darkgreen",  # springgreen4 equivalent
         line_width=0.4
+    )
+    
+    return fig
+    
+def sample_dendogram_plot(sample_data_df, correlation_matrix_df):
+    """
+    Create a dendrogram plot showing hierarchical clustering of samples
+    based on their correlation matrix.
+    
+    Args:
+        sample_data_df: DataFrame with sample information
+        correlation_matrix_df: Correlation matrix between samples (samples x samples)
+    """
+    # Set index to match column names (sample IDs) if not already set
+    if len(correlation_matrix_df.index) != len(correlation_matrix_df.columns) or not correlation_matrix_df.index.equals(correlation_matrix_df.columns):
+        correlation_matrix_df.index = correlation_matrix_df.columns
+    
+    # Convert correlation to distance (distance = 1 - correlation)
+    distance_matrix = 1 - correlation_matrix_df.values
+    
+    # Ensure the distance matrix is symmetric and has no negative values
+    distance_matrix = np.clip(distance_matrix, 0, None)
+    
+    # Convert to condensed distance matrix (required for linkage)
+    condensed_dist = squareform(distance_matrix, checks=False)
+    
+    # Perform hierarchical clustering
+    linkage_matrix = linkage(condensed_dist, method='complete')
+    
+    # Get sample labels (the sample IDs)
+    labels = correlation_matrix_df.columns.tolist()
+    
+    # Create dendrogram using scipy to get the structure
+    dend = dendrogram(linkage_matrix, labels=labels, orientation='right', no_plot=True)
+    
+    # Extract dendrogram data
+    icoord = np.array(dend['icoord'])
+    dcoord = np.array(dend['dcoord'])
+    ordered_labels = dend['ivl']
+    
+    # Create the figure
+    fig = go.Figure()
+    
+    # Add dendrogram lines
+    for i in range(len(icoord)):
+        fig.add_trace(go.Scatter(
+            x=dcoord[i],
+            y=icoord[i],
+            mode='lines',
+            line=dict(color='#CD853F', width=2),
+            hoverinfo='skip',
+            showlegend=False
+        ))
+    
+    # Get the y-positions for labels (from dendrogram structure)
+    # Labels appear at positions 5, 15, 25, 35... (increments of 10 in scipy dendrogram)
+    label_positions = list(range(5, len(labels) * 10 + 1, 10))
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text="Sample Dendrogram (Hierarchical Clustering)",
+            font=dict(size=18, family="Arial", weight=700)
+        ),
+        xaxis=dict(
+            title="Distance",
+            title_font=dict(size=14, family="Arial", weight=700),
+            tickfont=dict(size=12),
+            side='bottom'
+        ),
+        yaxis=dict(
+            title="",
+            tickvals=label_positions,
+            ticktext=ordered_labels,
+            tickfont=dict(size=10),
+            side='left'
+        ),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        height=max(400, len(labels) * 30),
+        width=800,
+        hovermode='closest',
+        showlegend=False,
+        margin=dict(l=50, r=150, t=80, b=80)  # Extra right margin for labels
+    )
+    
+    return fig
+
+def sample_correlation_plot(correlation_matrix_df):
+    """
+    Create a correlation heatmap showing pairwise correlations between samples.
+    
+    Args:
+        correlation_matrix_df: Correlation matrix between samples (samples x samples)
+                              Can include metadata columns like 'Sample', 'Cluster', etc.
+    """
+    # If dataframe has a 'Sample' column, use it as index and extract only sample correlation columns
+    if 'Sample' in correlation_matrix_df.columns:
+        # Get sample IDs that appear in both Sample column and as column names
+        sample_ids = correlation_matrix_df['Sample'].tolist()
+        # Filter to only columns that are sample IDs (numeric correlation values)
+        corr_cols = [col for col in correlation_matrix_df.columns if col in sample_ids]
+        # Extract just the correlation matrix part
+        corr_matrix = correlation_matrix_df[corr_cols].copy()
+        corr_matrix.index = sample_ids
+    else:
+        # Use as-is if already a pure correlation matrix
+        corr_matrix = correlation_matrix_df.copy()
+        if len(corr_matrix.index) != len(corr_matrix.columns) or not corr_matrix.index.equals(corr_matrix.columns):
+            corr_matrix.index = corr_matrix.columns
+    
+    # Get sample labels
+    sample_labels = corr_matrix.columns.tolist()
+    
+    # Create the heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_matrix.values,
+        x=sample_labels,
+        y=sample_labels,
+        colorscale='RdBu_r',  # Red-Blue reversed (red for high, blue for low)
+        zmid=0.5,  # Center the colorscale
+        zmin=0.8,  # Min correlation value for color scale
+        zmax=1.0,  # Max correlation value
+        text=np.round(corr_matrix.values, 2),  # Show correlation values
+        texttemplate='%{text}',
+        textfont={"size": 10},
+        colorbar=dict(
+            title="",
+            tickfont=dict(size=12),
+            len=0.7
+        ),
+        hovertemplate='%{y} vs %{x}<br>Correlation: %{z:.3f}<extra></extra>'
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text="Sample Correlation Matrix",
+            font=dict(size=18, family="Arial", weight=700),
+            y=0.98,  # Position title higher to avoid overlap
+            yanchor='top'
+        ),
+        xaxis=dict(
+            title="",
+            tickangle=-90,
+            tickfont=dict(size=10),
+            side='top'
+        ),
+        yaxis=dict(
+            title="",
+            tickfont=dict(size=10),
+            autorange='reversed'  # Reverse y-axis to match typical correlation matrix display
+        ),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        height=600,
+        width=700,
+        margin=dict(l=150, r=100, t=200, b=100)  # Increased top margin for title and x-axis labels
     )
     
     return fig
