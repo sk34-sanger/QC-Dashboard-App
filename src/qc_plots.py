@@ -532,3 +532,290 @@ def sample_correlation_plot(correlation_matrix_df):
     
     return fig
     
+
+def exp_qc_pca_plot(col_data_df, pca_center_df, pca_scale_df, pca_sdev_df, pca_rotation_df, pca_x_scores_df):
+    """
+    Create PCA plots showing PC1 vs PC2, PC2 vs PC3, PC1 vs PC3, and variance explained bar chart.
+    
+    Args:
+        col_data_df: DataFrame with sample metadata (should contain 'Day' and 'Replicate' columns)
+        pca_center_df: PCA centering values
+        pca_scale_df: PCA scaling values
+        pca_sdev_df: DataFrame with standard deviations for each PC
+        pca_rotation_df: PCA loadings/rotation matrix
+        pca_x_scores_df: DataFrame with PCA scores (PC coordinates for each sample)
+    """
+    # Calculate variance explained from standard deviations
+    # Handle different possible formats of pca_sdev_df
+    if isinstance(pca_sdev_df, pd.DataFrame):
+        # Check for 'sdev' column first
+        if 'sdev' in pca_sdev_df.columns:
+            sdev_values = pca_sdev_df['sdev'].values
+        else:
+            # Try to find numeric column with sdev values
+            numeric_cols = pca_sdev_df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 0:
+                sdev_values = pca_sdev_df[numeric_cols[0]].values
+            else:
+                sdev_values = pca_sdev_df.iloc[:, 0].values
+    else:
+        sdev_values = np.array(pca_sdev_df).astype(float)
+    
+    sdev_values = np.array(sdev_values, dtype=float)
+    variance = sdev_values ** 2
+    variance_explained = (variance / variance.sum()) * 100
+    
+    # Prepare PCA scores dataframe
+    pca_scores = pca_x_scores_df.copy()
+    
+    # Merge with metadata - try different approaches
+    if 'Sample' in col_data_df.columns and 'Sample' in pca_scores.columns:
+        pca_scores = pca_scores.merge(col_data_df, on='Sample', how='left')
+    elif 'Sample' in col_data_df.columns:
+        pca_scores = pca_scores.merge(col_data_df, left_index=True, right_on='Sample', how='left')
+    else:
+        pca_scores = pd.concat([pca_scores.reset_index(drop=True), col_data_df.reset_index(drop=True)], axis=1)
+    
+
+    
+    # Create 2x2 subplot layout
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('PC1 vs PC2', 'PC2 vs PC3', 'PC1 vs PC3', ''),
+        specs=[[{'type': 'scatter'}, {'type': 'scatter'}],
+               [{'type': 'scatter'}, {'type': 'bar'}]],
+        horizontal_spacing=0.12,
+        vertical_spacing=0.12
+    )
+    
+    # Get PC column names
+    pc_cols = [col for col in pca_scores.columns if str(col).startswith('PC')]
+    if len(pc_cols) < 3:
+        pc_cols = pca_scores.columns[:3].tolist()
+    
+    pc1_col = pc_cols[0] if len(pc_cols) > 0 else 'PC1'
+    pc2_col = pc_cols[1] if len(pc_cols) > 1 else 'PC2'
+    pc3_col = pc_cols[2] if len(pc_cols) > 2 else 'PC3'
+    
+    # Determine Day/Condition and Replicate column names (case-insensitive search)
+    day_col = None
+    rep_col = None
+    for col in pca_scores.columns:
+        col_lower = str(col).lower()
+        if col_lower in ['day', 'timepoint', 'condition']:
+            day_col = col
+        if col_lower in ['replicate', 'rep']:
+            rep_col = col
+    
+    # Build dynamic color mapping based on unique values in day_col
+    base_colors = [
+        'rgba(239, 138, 138, 0.8)',   # Salmon/light red
+        'rgba(100, 149, 237, 0.8)',   # Cornflower blue
+        'rgba(144, 238, 144, 0.8)',   # Light green
+        'rgba(255, 215, 0, 0.8)',     # Gold
+        'rgba(186, 85, 211, 0.8)',    # Medium orchid
+        'rgba(255, 127, 80, 0.8)',    # Coral
+    ]
+    day_colors = {}
+    if day_col:
+        unique_days = pca_scores[day_col].unique()
+        for i, day in enumerate(sorted(unique_days, key=str)):
+            day_colors[str(day)] = base_colors[i % len(base_colors)]
+    
+    # Build dynamic symbol mapping based on unique values in rep_col
+    base_symbols = ['circle', 'square', 'diamond', 'triangle-up', 'cross', 'x']
+    replicate_symbols = {}
+    if rep_col:
+        unique_reps = pca_scores[rep_col].unique()
+        for i, rep in enumerate(sorted(unique_reps, key=str)):
+            replicate_symbols[str(rep)] = base_symbols[i % len(base_symbols)]
+    
+    # Track legend items to avoid duplicates
+    legend_added = set()
+    
+    # Function to add scatter traces for a specific PC combination
+    def add_pca_scatter(row, col, x_col, y_col, x_label, y_label):
+        for _, sample in pca_scores.iterrows():
+            day = str(sample.get(day_col, 'Unknown')) if day_col else 'Unknown'
+            rep = str(sample.get(rep_col, 'R1')) if rep_col else 'R1'
+            
+            color = day_colors.get(day, 'rgba(128, 128, 128, 0.8)')
+            symbol = replicate_symbols.get(rep, 'circle')
+            
+            # Create legend name combining day and replicate
+            legend_name = f"{day} - {rep}"
+            show_legend = legend_name not in legend_added
+            if show_legend:
+                legend_added.add(legend_name)
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=[sample[x_col]],
+                    y=[sample[y_col]],
+                    mode='markers',
+                    marker=dict(
+                        color=color,
+                        symbol=symbol,
+                        size=12,
+                        line=dict(color='black', width=1)
+                    ),
+                    name=legend_name,
+                    legendgroup=legend_name,
+                    showlegend=show_legend,
+                    hovertemplate=f"{x_label}: %{{x:.1f}}<br>{y_label}: %{{y:.1f}}<extra></extra>"
+                ),
+                row=row, col=col
+            )
+    
+    # Plot PC1 vs PC2 (top left)
+    add_pca_scatter(1, 1, pc1_col, pc2_col, 'PC1', 'PC2')
+    
+    # Plot PC2 vs PC3 (top right)
+    add_pca_scatter(1, 2, pc2_col, pc3_col, 'PC2', 'PC3')
+    
+    # Plot PC1 vs PC3 (bottom left)
+    add_pca_scatter(2, 1, pc1_col, pc3_col, 'PC1', 'PC3')
+    
+    # Add variance explained bar chart (bottom right)
+    n_pcs = min(len(variance_explained), 9)
+    pc_labels = [f'PC{i+1}' for i in range(n_pcs)]
+    
+    fig.add_trace(
+        go.Bar(
+            x=pc_labels,
+            y=variance_explained[:n_pcs],
+            marker_color='rgba(100, 149, 237, 0.7)',
+            text=[f'{v:.1f}%' for v in variance_explained[:n_pcs]],
+            textposition='outside',
+            textfont=dict(size=9),
+            showlegend=False,
+            hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+        ),
+        row=2, col=2
+    )
+    
+    # Update axes labels
+    fig.update_xaxes(title_text='PC1', row=1, col=1)
+    fig.update_yaxes(title_text='PC2', row=1, col=1)
+    
+    fig.update_xaxes(title_text='PC2', row=1, col=2)
+    fig.update_yaxes(title_text='PC3', row=1, col=2)
+    
+    fig.update_xaxes(title_text='PC1', row=2, col=1)
+    fig.update_yaxes(title_text='PC3', row=2, col=1)
+    
+    fig.update_xaxes(title_text='', row=2, col=2)
+    fig.update_yaxes(title_text='', ticksuffix='%', row=2, col=2)
+    
+    # Update overall layout
+    fig.update_layout(
+        title=dict(
+            text='PCA Analysis',
+            font=dict(size=18, family='Arial', weight=700)
+        ),
+        height=700,
+        width=1000,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        legend=dict(
+            title=dict(text='Condition / Replicate'),
+            font=dict(size=9),
+            yanchor='top',
+            y=0.45,
+            xanchor='left',
+            x=1.02,
+            bgcolor='rgba(255, 255, 255, 0.8)'
+        ),
+        showlegend=True
+    )
+    
+    # Add grid lines
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray', zeroline=True, zerolinecolor='gray')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray', zeroline=True, zerolinecolor='gray')
+    
+    return fig
+
+
+def plot_expqc_deseq_fc(df, comparison_name, cons=None, ymin=-5, ymax=5):
+    """
+    Replicate qcplot_expqc_deseq_fc using Plotly.
+    
+    Parameters:
+    -----------
+    df : DataFrame with columns ['consequence', 'log2FoldChange', 'stat']
+    comparison_name : str, title for the plot
+    cons : list, consequences to include (default: Synonymous_Variant, LOF, Missense_Variant)
+    ymin, ymax : y-axis limits
+    """
+    if cons is None:
+        cons = ["Synonymous_Variant", "LOF", "Missense_Variant"]
+    
+    # Filter to selected consequences
+    df_filtered = df[df['consequence'].isin(cons)].copy()
+    
+    # Define colors/sizes by stat level (matches R: non-sig, up, down)
+    stat_colors = {
+        'non_significant': 'rgba(0,0,0,0.4)',
+        'up_regulated': 'rgba(255,0,0,0.8)',
+        'down_regulated': 'rgba(154,205,50,0.8)'
+    }
+    stat_sizes = {
+        'non_significant': 4,
+        'up_regulated': 8,
+        'down_regulated': 8
+    }
+    
+    fig = go.Figure()
+    
+    # Add violin for each consequence
+    for cons_type in cons:
+        subset = df_filtered[df_filtered['consequence'] == cons_type]
+        
+        # Violin trace
+        fig.add_trace(go.Violin(
+            y=subset['log2FoldChange'],
+            name=cons_type,
+            side='positive',
+            line_color='royalblue',
+            fillcolor='rgba(173,216,230,0.5)',
+            meanline_visible=False,
+            showlegend=False
+        ))
+        
+        # Scatter points (beeswarm-like with jitter)
+        for stat_val in subset['stat'].unique():
+            stat_subset = subset[subset['stat'] == stat_val]
+            jitter = np.random.uniform(-0.15, 0.15, len(stat_subset))
+            
+            fig.add_trace(go.Scatter(
+                x=[cons_type] * len(stat_subset),
+                y=stat_subset['log2FoldChange'],
+                mode='markers',
+                marker=dict(
+                    size=stat_sizes.get(stat_val, 4),
+                    color=stat_colors.get(stat_val, 'black')
+                ),
+                name=stat_val,
+                showlegend=True,
+                customdata=stat_subset.index
+            ))
+    
+    fig.update_layout(
+        title=comparison_name,
+        yaxis_title='log2FoldChange',
+        yaxis=dict(range=[ymin, ymax]),
+        plot_bgcolor='ivory',
+        violinmode='overlay',
+        legend_title='Type'
+    )
+    
+    return fig
+
+# Example usage:
+# df = pd.DataFrame({
+#     'consequence': ['LOF', 'LOF', 'Synonymous_Variant', ...],
+#     'log2FoldChange': [1.5, -0.8, 0.2, ...],
+#     'stat': ['up_regulated', 'non_significant', 'down_regulated', ...]
+# })
+# fig = plot_expqc_deseq_fc(df, "Treatment_vs_Control")
+# fig.show()
