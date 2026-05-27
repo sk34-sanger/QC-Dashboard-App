@@ -2,7 +2,7 @@ import dash
 from dash import Dash, Input, Output, html, dcc, callback
 import json
 import dash_ag_grid as dag
-import pandas as pd
+from screen_data_loader import load_screen_dataframes
 
 
 dash.register_page(__name__)
@@ -34,31 +34,32 @@ from table_configs.table_config import (
     )
 # --- 2. Load Data ---
 
-ss_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_sheet.tsv", sep='\t')
-sample_qc_meta_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_meta.tsv", sep='\t')
-sample_qc_read_length_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_read_length.tsv", sep='\t')
-sample_qc_stats_missing_var_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_missing.tsv", sep='\t')
-missing_variants_in_library_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/missing_variants_in_library.tsv", sep='\t')
-sample_qc_stats_total_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_total.tsv", sep='\t')
-sample_qc_stats_accepted_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_accepted.tsv", sep='\t')
-sample_qc_stats_coverage_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_coverage.tsv", sep='\t')
-sample_qc_stats_pos_coverage_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_pos_coverage.tsv", sep='\t')
-sample_qc_stats_pos_counts_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_pos_counts.tsv", sep='\t')
-sample_qc_position_cov_data_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_position_cov_data.tsv", sep='\t')
-sample_qc_cutoffs_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_cutoffs.tsv", sep='\t')
-sample_qc_position_anno_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_position_anno_data.tsv", sep='\t')
-sample_qc_stats_pos_percentage_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_qc_stats_pos_percentage.tsv", sep='\t')
-sample_data_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/sample_data.tsv", sep='\t')
-correlation_matrix_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/correlation_matrix.tsv", sep='\t')
-experiment_qc_corr_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/experiment_qc_corr.tsv", sep='\t')
+screen_dataframes = load_screen_dataframes()
 
-# Experiment QC PCA data
-col_data_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/exp_qc_pca_data/col_data.tsv", sep='\t')
-pca_center_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/exp_qc_pca_data/pca_center.tsv", sep='\t')
-pca_scale_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/exp_qc_pca_data/pca_scale.tsv", sep='\t')
-pca_sdev_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/exp_qc_pca_data/pca_sdev.tsv", sep='\t')
-pca_rotation_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/exp_qc_pca_data/pca_rotation_loadings.tsv", sep='\t')
-pca_x_scores_df = pd.read_csv("/home/ubuntu/QC-Dashboard-App/data/screen/exp_qc_pca_data/pca_x_scores.tsv", sep='\t')
+ss_df = screen_dataframes["ss_df"]
+sample_qc_meta_df = screen_dataframes["sample_qc_meta_df"]
+sample_qc_read_length_df = screen_dataframes["sample_qc_read_length_df"]
+sample_qc_stats_missing_var_df = screen_dataframes["sample_qc_stats_missing_var_df"]
+missing_variants_in_library_df = screen_dataframes["missing_variants_in_library_df"]
+sample_qc_stats_total_df = screen_dataframes["sample_qc_stats_total_df"]
+sample_qc_stats_accepted_df = screen_dataframes["sample_qc_stats_accepted_df"]
+sample_qc_stats_coverage_df = screen_dataframes["sample_qc_stats_coverage_df"]
+sample_qc_stats_pos_coverage_df = screen_dataframes["sample_qc_stats_pos_coverage_df"]
+sample_qc_stats_pos_counts_df = screen_dataframes["sample_qc_stats_pos_counts_df"]
+sample_qc_position_cov_data_df = screen_dataframes["sample_qc_position_cov_data_df"]
+sample_qc_cutoffs_df = screen_dataframes["sample_qc_cutoffs_df"]
+sample_qc_position_anno_df = screen_dataframes["sample_qc_position_anno_df"]
+sample_qc_stats_pos_percentage_df = screen_dataframes["sample_qc_stats_pos_percentage_df"]
+sample_data_df = screen_dataframes["sample_data_df"]
+correlation_matrix_df = screen_dataframes["correlation_matrix_df"]
+experiment_qc_corr_df = screen_dataframes["experiment_qc_corr_df"]
+
+col_data_df = screen_dataframes["col_data_df"]
+pca_center_df = screen_dataframes["pca_center_df"]
+pca_scale_df = screen_dataframes["pca_scale_df"]
+pca_sdev_df = screen_dataframes["pca_sdev_df"]
+pca_rotation_df = screen_dataframes["pca_rotation_df"]
+pca_x_scores_df = screen_dataframes["pca_x_scores_df"]
 
 
 # Process position coverage data with boxplot
@@ -255,7 +256,14 @@ layout = html.Div([
             id='sample-correlation-dendogram', 
             figure=sample_dendogram_plot(sample_data_df, correlation_matrix_df)
         )
-    ], style={'marginBottom': '50px'}),
+    ], style={
+    'display': 'flex',
+    'flexDirection': 'column',  # Stacks the H3 and Graph vertically
+    'alignItems': 'center',     # Centers them horizontally
+    'justifyContent': 'center', # Centers them vertically (if the div has a height)
+    'width': '80%',             # Controls how wide the graph area should be
+    'margin': '0 auto 50px auto' # '0 auto' centers the whole Div itself; '50px' keeps your bottom margin
+}),
     
     html.Div([
         html.H3("Sample Correlation Plot"),
@@ -263,7 +271,14 @@ layout = html.Div([
             id='sample_correlation_plot',
             figure=sample_correlation_plot(experiment_qc_corr_df)
         )
-    ], style={'marginBottom': '50px'}),
+    ], style={
+    'display': 'flex',
+    'flexDirection': 'column',  # Stacks the H3 and Graph vertically
+    'alignItems': 'center',     # Centers them horizontally
+    'justifyContent': 'center', # Centers them vertically (if the div has a height)
+    'width': '80%',             # Controls how wide the graph area should be
+    'margin': '0 auto 50px auto' # '0 auto' centers the whole Div itself; '50px' keeps your bottom margin
+}),
     
     
     html.Div([
@@ -293,7 +308,14 @@ layout = html.Div([
                 pca_x_scores_df,
             )
         )
-    ], style={'marginBottom': '50px'}),
+    ], style={
+    'display': 'flex',
+    'flexDirection': 'column',  # Stacks the H3 and Graph vertically
+    'alignItems': 'center',     # Centers them horizontally
+    'justifyContent': 'center', # Centers them vertically (if the div has a height)
+    'width': '80%',             # Controls how wide the graph area should be
+    'margin': '0 auto 50px auto' # '0 auto' centers the whole Div itself; '50px' keeps your bottom margin
+}),
     
 ], style={'padding': '20px'})
 
